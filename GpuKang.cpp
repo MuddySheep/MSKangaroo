@@ -83,17 +83,6 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
 //allocate gpu mem
 	u64 size;
 
-	if (!IsOldGpu)
-	{
-		//L2	
-                int L2size = Kparams.KangCnt * (3 * 32);
-                total_mem += L2size;
-                CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.L2, L2size));
-                size = L2size;
-                if (size > persistingL2CacheMaxSize)
-                        size = persistingL2CacheMaxSize;
-                CUDA_CHECK_ERROR(cudaDeviceSetLimit(cudaLimitPersistingL2CacheSize, size)); // set max allowed size for L2
-
         if (!IsOldGpu)
         {
                 //L2
@@ -120,50 +109,6 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
 		stream_attribute.accessPolicyWindow.missProp = cudaAccessPropertyStreaming;  	
                 CUDA_CHECK_ERROR(cudaStreamSetAttribute(NULL, cudaStreamAttributeAccessPolicyWindow, &stream_attribute));
 	}
-
-	size = MAX_DP_CNT * GPU_DP_SIZE + 16;
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.DPs_out, size));
-
-	size = KangCnt * 96;
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.Kangs, size));
-
-	total_mem += JMP_CNT * 96;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.Jumps1, JMP_CNT * 96));
-
-	total_mem += JMP_CNT * 96;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.Jumps2, JMP_CNT * 96));
-
-	total_mem += JMP_CNT * 96;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.Jumps3, JMP_CNT * 96));
-
-	size = 2 * (u64)KangCnt * STEP_CNT;
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.JumpsList, size));
-
-	size = (u64)KangCnt * (16 * DPTABLE_MAX_CNT + sizeof(u32)); //we store 16bytes of X
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.DPTable, size));
-
-	size = mpCnt * Kparams.BlockSize * sizeof(u64);
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.L1S2, size));
-
-	size = (u64)KangCnt * MD_LEN * (2 * 32);
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.LastPnts, size));
-
-	size = (u64)KangCnt * MD_LEN * sizeof(u64);
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.LoopTable, size));
-
-	total_mem += 1024;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.dbg_buf, 1024));
-
-	size = sizeof(u32) * KangCnt + 8;
-	total_mem += size;
-        CUDA_CHECK_ERROR(cudaMalloc((void**)&Kparams.LoopedKangs, size));
 
         size = MAX_DP_CNT * GPU_DP_SIZE + 16;
         total_mem += size;
@@ -377,13 +322,43 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
                 cudaFreeHost(buf);
                 return false;
         }
+
         cudaStreamSynchronize(copyStream);
         cudaFreeHost(buf);
+
+        cudaStreamSynchronize(copyStream);
+        cudaFreeHost(buf);
+
 
 	printf("GPU %d: allocated %llu MB, %d kangaroos. OldGpuMode: %s\r\n", CudaIndex, total_mem / (1024 * 1024), KangCnt, IsOldGpu ? "Yes" : "No");
 	return true;
 }
 
+
+
+void RCGpuKang::Release()
+{
+        CUDA_CHECK_ERROR(cudaFreeHost(RndPnts));
+        RndPnts = nullptr;
+        CUDA_CHECK_ERROR(cudaFreeHost(DPs_out));
+        DPs_out = nullptr;
+        buf_LoopedKangs.reset();  Kparams.LoopedKangs = nullptr;
+        buf_dbg_buf.reset();      Kparams.dbg_buf = nullptr;
+        buf_LoopTable.reset();    Kparams.LoopTable = nullptr;
+        buf_LastPnts.reset();     Kparams.LastPnts = nullptr;
+        buf_L1S2.reset();         Kparams.L1S2 = nullptr;
+        buf_DPTable.reset();      Kparams.DPTable = nullptr;
+        buf_JumpsList.reset();    Kparams.JumpsList = nullptr;
+        buf_Jumps3.reset();       Kparams.Jumps3 = nullptr;
+        buf_Jumps2.reset();       Kparams.Jumps2 = nullptr;
+        buf_Jumps1.reset();       Kparams.Jumps1 = nullptr;
+        buf_Kangs.reset();        Kparams.Kangs = nullptr;
+        buf_DPs_out.reset();      Kparams.DPs_out = nullptr;
+        if (!IsOldGpu) { buf_L2.reset(); Kparams.L2 = nullptr; }
+
+}
+
+void RCGpuKang::Stop()
 
 void RCGpuKang::Release()
 {
@@ -410,6 +385,7 @@ void RCGpuKang::Release()
 }
 
 void RCGpuKang::Stop()
+
 {
 	StopFlag = true;
 }
