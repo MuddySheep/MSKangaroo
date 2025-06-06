@@ -9,6 +9,7 @@
 
 #include "cuda_runtime.h"
 #include "cuda.h"
+#include "cuda_helpers.h"
 
 #include "defs.h"
 #include "utils.h"
@@ -68,7 +69,7 @@ void InitGpus()
 {
 	GpuCnt = 0;
 	int gcnt = 0;
-	cudaGetDeviceCount(&gcnt);
+        CUDA_CHECK_ERROR(cudaGetDeviceCount(&gcnt));
 	if (gcnt > MAX_GPU_CNT)
 		gcnt = MAX_GPU_CNT;
 
@@ -77,27 +78,21 @@ void InitGpus()
 		return;
 
 	int drv, rt;
-	cudaRuntimeGetVersion(&rt);
-	cudaDriverGetVersion(&drv);
+        CUDA_CHECK_ERROR(cudaRuntimeGetVersion(&rt));
+        CUDA_CHECK_ERROR(cudaDriverGetVersion(&drv));
 	char drvver[100];
 	sprintf(drvver, "%d.%d/%d.%d", drv / 1000, (drv % 100) / 10, rt / 1000, (rt % 100) / 10);
 
 	printf("CUDA devices: %d, CUDA driver/runtime: %s\r\n", gcnt, drvver);
-	cudaError_t cudaStatus;
-	for (int i = 0; i < gcnt; i++)
-	{
-		cudaStatus = cudaSetDevice(i);
-		if (cudaStatus != cudaSuccess)
-		{
-			printf("cudaSetDevice for gpu %d failed!\r\n", i);
-			continue;
-		}
+        for (int i = 0; i < gcnt; i++)
+        {
+                CUDA_CHECK_ERROR(cudaSetDevice(i));
 
 		if (!gGPUs_Mask[i])
 			continue;
 
 		cudaDeviceProp deviceProp;
-		cudaGetDeviceProperties(&deviceProp, i);
+                CUDA_CHECK_ERROR(cudaGetDeviceProperties(&deviceProp, i));
 		printf("GPU %d: %s, %.2f GB, %d CUs, cap %d.%d, PCI %d, L2 size: %d KB\r\n", i, deviceProp.name, ((float)(deviceProp.totalGlobalMem / (1024 * 1024))) / 1024.0f, deviceProp.multiProcessorCount, deviceProp.major, deviceProp.minor, deviceProp.pciBusID, deviceProp.l2CacheSize / 1024);
 		
 		if (deviceProp.major < 6)
@@ -106,7 +101,7 @@ void InitGpus()
 			continue;
 		}
 
-		cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+                CUDA_CHECK_ERROR(cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync));
 
 		GpuKangs[GpuCnt] = new RCGpuKang();
 		GpuKangs[GpuCnt]->CudaIndex = i;
