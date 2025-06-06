@@ -7,7 +7,11 @@
 #pragma once
 
 #include "Ec.h"
+
+#include <cuda_runtime.h>
+
 #include "GpuBuffer.h" // why: RAII wrapper for GPU memory
+
 
 #define STATS_WND_SIZE	16
 
@@ -35,6 +39,10 @@ private:
 	Ec ec;
 
 	u32* DPs_out;
+
+        TKparams Kparams;
+        cudaStream_t copyStream; // async H2D/D2H copies
+
         TKparams Kparams; // raw pointers for kernels
         // RAII buffers to manage GPU memory
         GpuBuffer buf_L2;
@@ -50,6 +58,7 @@ private:
         GpuBuffer buf_LoopTable;
         GpuBuffer buf_dbg_buf;
         GpuBuffer buf_LoopedKangs;
+
 
 	EcInt HalfRange;
 	EcPoint PntHalfRange;
