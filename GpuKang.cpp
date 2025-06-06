@@ -393,7 +393,7 @@ bool RCGpuKang::Start()
 	PntB = PntA;
 	PntB.y.NegModP();
 
-        err = cudaHostAlloc((void**)&RndPnts, (size_t)KangCnt * 96, cudaHostAllocDefault);
+        cudaError_t err = cudaHostAlloc((void**)&RndPnts, (size_t)KangCnt * 96, cudaHostAllocDefault);
         if (err != cudaSuccess)
         {
                 printf("GPU %d cudaHostAlloc RndPnts failed: %s\n", CudaIndex, cudaGetErrorString(err));
@@ -467,7 +467,7 @@ bool RCGpuKang::Start()
 
 	//copy to gpu
         CUDA_CHECK_ERROR(cudaMemcpy(Kparams.Kangs, RndPnts, KangCnt * 96, cudaMemcpyHostToDevice));
-	CallGpuKernelGen(Kparams);
+        CallGpuKernelGen(Kparams, copyStream);
 
 
         CUDA_CHECK_ERROR(cudaMemset(Kparams.L1S2, 0, mpCnt * Kparams.BlockSize * 8));
@@ -534,17 +534,19 @@ void RCGpuKang::Execute()
 		return;
 	}
 #ifdef DEBUG_MODE
-	u64 iter = 1;
+        u64 iter = 1;
 #endif
+        cudaError_t err;
+        int cnt = 0;
+        u32 lcnt = 0;
         while (!StopFlag)
-	{
+        {
 		u64 t1 = GetTickCount64();
 
                 CUDA_CHECK_ERROR(cudaMemset(Kparams.DPs_out, 0, 4));
                 CUDA_CHECK_ERROR(cudaMemset(Kparams.DPTable, 0, KangCnt * sizeof(u32)));
                 CUDA_CHECK_ERROR(cudaMemset(Kparams.LoopedKangs, 0, 8));
                 CallGpuKernelABC(Kparams, copyStream);
-                int cnt;
                 err = cudaMemcpyAsync(&cnt, Kparams.DPs_out, sizeof(cnt), cudaMemcpyDeviceToHost, copyStream);
                 if (err != cudaSuccess)
                 {
@@ -557,9 +559,8 @@ void RCGpuKang::Execute()
                 CUDA_CHECK_ERROR(cudaMemset(Kparams.DPs_out, 0, 4));
                 CUDA_CHECK_ERROR(cudaMemset(Kparams.DPTable, 0, KangCnt * sizeof(u32)));
                 CUDA_CHECK_ERROR(cudaMemset(Kparams.LoopedKangs, 0, 8));
-		CallGpuKernelABC(Kparams);
-		int cnt;
-                CUDA_CHECK_ERROR(cudaMemcpy(&cnt, Kparams.DPs_out, 4, cudaMemcpyDeviceToHost));
+                CallGpuKernelABC(Kparams, copyStream);
+                CUDA_CHECK_ERROR(cudaMemcpy(&cnt, Kparams.DPs_out, sizeof(cnt), cudaMemcpyDeviceToHost));
 
 		if (cnt >= MAX_DP_CNT)
 		{
@@ -584,8 +585,7 @@ void RCGpuKang::Execute()
                 //dbg
                 CUDA_CHECK_ERROR(cudaMemcpyAsync(dbg, Kparams.dbg_buf, 1024, cudaMemcpyDeviceToHost, copyStream));
 
-                u32 lcnt;
-                CUDA_CHECK_ERROR(cudaMemcpyAsync(&lcnt, Kparams.LoopedKangs, 4, cudaMemcpyDeviceToHost, copyStream));
+                CUDA_CHECK_ERROR(cudaMemcpyAsync(&lcnt, Kparams.LoopedKangs, sizeof(lcnt), cudaMemcpyDeviceToHost, copyStream));
                 CUDA_CHECK_ERROR(cudaStreamSynchronize(copyStream));
 
 		if (cnt)
@@ -597,8 +597,7 @@ void RCGpuKang::Execute()
 		//dbg
                 CUDA_CHECK_ERROR(cudaMemcpy(dbg, Kparams.dbg_buf, 1024, cudaMemcpyDeviceToHost));
 
-                u32 lcnt;
-                CUDA_CHECK_ERROR(cudaMemcpy(&lcnt, Kparams.LoopedKangs, 4, cudaMemcpyDeviceToHost));
+                CUDA_CHECK_ERROR(cudaMemcpy(&lcnt, Kparams.LoopedKangs, sizeof(lcnt), cudaMemcpyDeviceToHost));
 
 		//printf("GPU %d, Looped: %d\r\n", CudaIndex, lcnt);
 
