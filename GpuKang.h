@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Ec.h"
+#include <cuda_runtime.h>
 
 #define STATS_WND_SIZE	16
 
@@ -34,7 +35,8 @@ private:
 	Ec ec;
 
 	u32* DPs_out;
-	TKparams Kparams;
+        TKparams Kparams;
+        cudaStream_t copyStream; // async H2D/D2H copies
 
 	EcInt HalfRange;
 	EcPoint PntHalfRange;
