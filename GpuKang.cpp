@@ -6,34 +6,20 @@
 
 #include <iostream>
 #include "cuda_runtime.h"
-
 #include "cuda.h"
 #include <cassert>
-#include "defs.h" // for u64 size check
+#include "defs.h" // why: for u64 size check
+#include "GpuKang.h"
+#include "cuda_helpers.h"
 
 static_assert(sizeof(u64) == 8, "u64 must be 64 bits");
-
-#include "GpuKang.h"
-
-static_assert(sizeof(TPointPriv) == 96, "TPointPriv size mismatch");
-static_assert(sizeof(cudaStream_t) == sizeof(void*), "cudaStream_t unexpected size");
-
 static_assert(sizeof(TPointPriv) == 96, "TPointPriv size mismatch");
 static_assert(sizeof(void*) == 8, "64-bit pointers expected");
-
+static_assert(sizeof(cudaStream_t) == sizeof(void*), "cudaStream_t unexpected size");
 
 cudaError_t cuSetGpuParams(TKparams Kparams, u64* _jmp2_table);
 void CallGpuKernelGen(TKparams Kparams, cudaStream_t stream);
 void CallGpuKernelABC(TKparams Kparams, cudaStream_t stream);
-
-#include "cuda.h"
-
-#include "GpuKang.h"
-#include "cuda_helpers.h"
-
-cudaError_t cuSetGpuParams(TKparams Kparams, u64* _jmp2_table);
-void CallGpuKernelGen(TKparams Kparams);
-void CallGpuKernelABC(TKparams Kparams);
 
 void AddPointsToList(u32* data, int cnt, u64 ops_cnt);
 extern bool gGenMode; //tames generation mode
@@ -369,76 +355,8 @@ void RCGpuKang::Release()
 }
 
 void RCGpuKang::Stop()
-
-void RCGpuKang::Release()
 {
-
-        if (RndPnts)
-                CUDA_CHECK_ERROR(cudaFreeHost(RndPnts));
-        if (DPs_out)
-                CUDA_CHECK_ERROR(cudaFreeHost(DPs_out));
-        CUDA_CHECK_ERROR(cudaStreamDestroy(copyStream));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.LoopedKangs));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.dbg_buf));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.LoopTable));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.LastPnts));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.L1S2));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.DPTable));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.JumpsList));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.Jumps3));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.Jumps2));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.Jumps1));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.Kangs));
-        CUDA_CHECK_ERROR(cudaFree(Kparams.DPs_out));
-        if (!IsOldGpu)
-                CUDA_CHECK_ERROR(cudaFree(Kparams.L2));
-
-void RCGpuKang::Release()
-{
-        free(RndPnts);
-        free(DPs_out);
-        buf_LoopedKangs.reset();  Kparams.LoopedKangs = nullptr;
-        buf_dbg_buf.reset();      Kparams.dbg_buf = nullptr;
-        buf_LoopTable.reset();    Kparams.LoopTable = nullptr;
-        buf_LastPnts.reset();     Kparams.LastPnts = nullptr;
-        buf_L1S2.reset();         Kparams.L1S2 = nullptr;
-        buf_DPTable.reset();      Kparams.DPTable = nullptr;
-        buf_JumpsList.reset();    Kparams.JumpsList = nullptr;
-        buf_Jumps3.reset();       Kparams.Jumps3 = nullptr;
-        buf_Jumps2.reset();       Kparams.Jumps2 = nullptr;
-        buf_Jumps1.reset();       Kparams.Jumps1 = nullptr;
-        buf_Kangs.reset();        Kparams.Kangs = nullptr;
-        buf_DPs_out.reset();      Kparams.DPs_out = nullptr;
-        if (!IsOldGpu) { buf_L2.reset(); Kparams.L2 = nullptr; }
-
-
-        if (RndPnts)
-                cudaFreeHost(RndPnts);
-        if (DPs_out)
-                cudaFreeHost(DPs_out);
-        cudaStreamDestroy(copyStream);
-	cudaFree(Kparams.LoopedKangs);
-	cudaFree(Kparams.dbg_buf);
-	cudaFree(Kparams.LoopTable);
-	cudaFree(Kparams.LastPnts);
-	cudaFree(Kparams.L1S2);
-	cudaFree(Kparams.DPTable);
-	cudaFree(Kparams.JumpsList);
-	cudaFree(Kparams.Jumps3);
-	cudaFree(Kparams.Jumps2);
-	cudaFree(Kparams.Jumps1);
-	cudaFree(Kparams.Kangs);
-	cudaFree(Kparams.DPs_out);
-        if (!IsOldGpu)
-                cudaFree(Kparams.L2);
-        // all GPU buffers freed
-
-}
-
-void RCGpuKang::Stop()
-
-{
-	StopFlag = true;
+        StopFlag = true;
 }
 
 void RCGpuKang::GenerateRndDistances()

@@ -40,10 +40,8 @@ private:
 
 	u32* DPs_out;
 
-        TKparams Kparams;
-        cudaStream_t copyStream; // async H2D/D2H copies
-
-        TKparams Kparams; // raw pointers for kernels
+       TKparams Kparams;
+       cudaStream_t copyStream; // async H2D/D2H copies
         // RAII buffers to manage GPU memory
         GpuBuffer buf_L2;
         GpuBuffer buf_DPs_out;
