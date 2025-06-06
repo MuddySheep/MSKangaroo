@@ -13,6 +13,7 @@
 static_assert(sizeof(u64) == 8, "u64 must be 64 bits");
 
 #include "GpuKang.h"
+static_assert(sizeof(TPointPriv) == 96, "TPointPriv size mismatch");
 
 cudaError_t cuSetGpuParams(TKparams Kparams, u64* _jmp2_table);
 void CallGpuKernelGen(TKparams Kparams, cudaStream_t stream);
