@@ -15,6 +15,7 @@ static_assert(sizeof(u64) == 8, "u64 must be 64 bits");
 
 #include "GpuKang.h"
 static_assert(sizeof(TPointPriv) == 96, "TPointPriv size mismatch");
+static_assert(sizeof(void*) == 8, "64-bit pointers expected");
 
 cudaError_t cuSetGpuParams(TKparams Kparams, u64* _jmp2_table);
 void CallGpuKernelGen(TKparams Kparams, cudaStream_t stream);
@@ -287,6 +288,7 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
                 printf("GPU %d cudaHostAlloc DPs_out failed: %s\n", CudaIndex, cudaGetErrorString(err));
                 return false;
         }
+        assert(((uintptr_t)DPs_out % alignof(u32)) == 0 && "DPs_out alignment");
 
 //jmp1
         u64* buf = nullptr;
@@ -378,45 +380,6 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
         cudaStreamSynchronize(copyStream);
         cudaFreeHost(buf);
 
-	DPs_out = (u32*)malloc(MAX_DP_CNT * GPU_DP_SIZE);
-
-//jmp1
-	u64* buf = (u64*)malloc(JMP_CNT * 96);
-	for (int i = 0; i < JMP_CNT; i++)
-	{
-		memcpy(buf + i * 12, EcJumps1[i].p.x.data, 32);
-		memcpy(buf + i * 12 + 4, EcJumps1[i].p.y.data, 32);
-		memcpy(buf + i * 12 + 8, EcJumps1[i].dist.data, 32);
-	}
-        CUDA_CHECK_ERROR(cudaMemcpy(Kparams.Jumps1, buf, JMP_CNT * 96, cudaMemcpyHostToDevice));
-	free(buf);
-//jmp2
-	buf = (u64*)malloc(JMP_CNT * 96);
-	u64* jmp2_table = (u64*)malloc(JMP_CNT * 64);
-	for (int i = 0; i < JMP_CNT; i++)
-	{
-		memcpy(buf + i * 12, EcJumps2[i].p.x.data, 32);
-		memcpy(jmp2_table + i * 8, EcJumps2[i].p.x.data, 32);
-		memcpy(buf + i * 12 + 4, EcJumps2[i].p.y.data, 32);
-		memcpy(jmp2_table + i * 8 + 4, EcJumps2[i].p.y.data, 32);
-		memcpy(buf + i * 12 + 8, EcJumps2[i].dist.data, 32);
-	}
-        CUDA_CHECK_ERROR(cudaMemcpy(Kparams.Jumps2, buf, JMP_CNT * 96, cudaMemcpyHostToDevice));
-	free(buf);
-
-        CUDA_CHECK_ERROR(cuSetGpuParams(Kparams, jmp2_table));
-        free(jmp2_table);
-//jmp3
-	buf = (u64*)malloc(JMP_CNT * 96);
-	for (int i = 0; i < JMP_CNT; i++)
-	{
-		memcpy(buf + i * 12, EcJumps3[i].p.x.data, 32);
-		memcpy(buf + i * 12 + 4, EcJumps3[i].p.y.data, 32);
-		memcpy(buf + i * 12 + 8, EcJumps3[i].dist.data, 32);
-	}
-        CUDA_CHECK_ERROR(cudaMemcpy(Kparams.Jumps3, buf, JMP_CNT * 96, cudaMemcpyHostToDevice));
-	free(buf);
-
 	printf("GPU %d: allocated %llu MB, %d kangaroos. OldGpuMode: %s\r\n", CudaIndex, total_mem / (1024 * 1024), KangCnt, IsOldGpu ? "Yes" : "No");
 	return true;
 }
@@ -441,27 +404,9 @@ void RCGpuKang::Release()
 	cudaFree(Kparams.Jumps1);
 	cudaFree(Kparams.Kangs);
 	cudaFree(Kparams.DPs_out);
-	if (!IsOldGpu)
-		cudaFree(Kparams.L2);
-
-void RCGpuKang::Release()
-{
-        free(RndPnts);
-        free(DPs_out);
-        buf_LoopedKangs.reset();  Kparams.LoopedKangs = nullptr;
-        buf_dbg_buf.reset();      Kparams.dbg_buf = nullptr;
-        buf_LoopTable.reset();    Kparams.LoopTable = nullptr;
-        buf_LastPnts.reset();     Kparams.LastPnts = nullptr;
-        buf_L1S2.reset();         Kparams.L1S2 = nullptr;
-        buf_DPTable.reset();      Kparams.DPTable = nullptr;
-        buf_JumpsList.reset();    Kparams.JumpsList = nullptr;
-        buf_Jumps3.reset();       Kparams.Jumps3 = nullptr;
-        buf_Jumps2.reset();       Kparams.Jumps2 = nullptr;
-        buf_Jumps1.reset();       Kparams.Jumps1 = nullptr;
-        buf_Kangs.reset();        Kparams.Kangs = nullptr;
-        buf_DPs_out.reset();      Kparams.DPs_out = nullptr;
-        if (!IsOldGpu) { buf_L2.reset(); Kparams.L2 = nullptr; }
-
+        if (!IsOldGpu)
+                cudaFree(Kparams.L2);
+        // all GPU buffers freed
 }
 
 void RCGpuKang::Stop()
