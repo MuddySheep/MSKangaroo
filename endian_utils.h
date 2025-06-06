@@ -8,10 +8,3 @@ constexpr bool is_little_endian() {
 
 static_assert(is_little_endian(), "Big-endian architectures are not supported");
 
-#define CUDA_CHECK_ERROR(call) do { \
-    cudaError_t _e = (call); \
-    if(_e != cudaSuccess) { \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(_e)); \
-    } \
-} while(0)
-

@@ -15,6 +15,7 @@ static_assert(sizeof(u64) == 8, "u64 must be 64 bits");
 
 #include "GpuKang.h"
 static_assert(sizeof(TPointPriv) == 96, "TPointPriv size mismatch");
+static_assert(sizeof(void*) == 8, "64-bit pointers expected");
 
 cudaError_t cuSetGpuParams(TKparams Kparams, u64* _jmp2_table);
 void CallGpuKernelGen(TKparams Kparams, cudaStream_t stream);
@@ -232,6 +233,7 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
                 printf("GPU %d cudaHostAlloc DPs_out failed: %s\n", CudaIndex, cudaGetErrorString(err));
                 return false;
         }
+        assert(((uintptr_t)DPs_out % alignof(u32)) == 0 && "DPs_out alignment");
 
 //jmp1
         u64* buf = nullptr;
@@ -320,6 +322,10 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
                 cudaFreeHost(buf);
                 return false;
         }
+
+        cudaStreamSynchronize(copyStream);
+        cudaFreeHost(buf);
+
         cudaStreamSynchronize(copyStream);
         cudaFreeHost(buf);
 
@@ -327,6 +333,7 @@ bool RCGpuKang::Prepare(EcPoint _PntToSolve, int _Range, int _DP, EcJMP* _EcJump
 	printf("GPU %d: allocated %llu MB, %d kangaroos. OldGpuMode: %s\r\n", CudaIndex, total_mem / (1024 * 1024), KangCnt, IsOldGpu ? "Yes" : "No");
 	return true;
 }
+
 
 
 void RCGpuKang::Release()
@@ -352,6 +359,33 @@ void RCGpuKang::Release()
 }
 
 void RCGpuKang::Stop()
+
+void RCGpuKang::Release()
+{
+        if (RndPnts)
+                cudaFreeHost(RndPnts);
+        if (DPs_out)
+                cudaFreeHost(DPs_out);
+        cudaStreamDestroy(copyStream);
+	cudaFree(Kparams.LoopedKangs);
+	cudaFree(Kparams.dbg_buf);
+	cudaFree(Kparams.LoopTable);
+	cudaFree(Kparams.LastPnts);
+	cudaFree(Kparams.L1S2);
+	cudaFree(Kparams.DPTable);
+	cudaFree(Kparams.JumpsList);
+	cudaFree(Kparams.Jumps3);
+	cudaFree(Kparams.Jumps2);
+	cudaFree(Kparams.Jumps1);
+	cudaFree(Kparams.Kangs);
+	cudaFree(Kparams.DPs_out);
+        if (!IsOldGpu)
+                cudaFree(Kparams.L2);
+        // all GPU buffers freed
+}
+
+void RCGpuKang::Stop()
+
 {
 	StopFlag = true;
 }

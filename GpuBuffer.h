@@ -3,6 +3,10 @@
 #include <cuda_runtime.h>
 #include <cstdio>
 #include "endian_utils.h" // why: ensure little-endian assumptions
+#include "cuda_helpers.h" // why: macro CUDA_CHECK_ERROR
+#ifndef CUDA_CHECK_ERROR
+#error "CUDA_CHECK_ERROR must be defined via cuda_helpers.h"
+#endif
 
 // RAII wrapper around cudaMalloc/cudaFree
 class GpuBuffer {
